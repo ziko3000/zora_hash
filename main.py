@@ -367,18 +367,27 @@ def main():
         account = queue.pop(0)
 
         wallet, proxy = account
+        
 
         if ';' not in wallet:
             encrypted_key = wallet
         else:
             parts = wallet.split(';')
+
+            # if the wallet is in the format "private_key1", parts will have a length of 1
+            # if the wallet is in the format "address1;private_key1", parts will have a length of 2
+            
+
             if len(parts) == 2:
                 encrypted_key = parts[1]
             else:
                 encrypted_key = parts[0]
+                  # replace with your password
                 
+
         try:
             key = decrypt_private_key(encrypted_key, PASSWORD)
+            
         except Exception as e:
             print(f"An error occurred during the decryption: {str(e)}")
             continue
@@ -407,10 +416,10 @@ def main():
 
         idx += 1
 
-    cprint('\n#########################################\n#', 'cyan', end='')
-    cprint(f'Finished'.center(39), 'magenta', end='')
-    cprint('#\n#########################################', 'cyan')
+    
+    print('Finished')
 
 
 if __name__ == '__main__':
+
     main()
