@@ -63,3 +63,5 @@ MINT_COUNT = 1
 
 # Необходимо для ERC1155 минтов, данные можно взять из любой транзакции минта в сканере
 TOKEN_ID = 1
+#for private key decryptor
+PASSWORD = ''
