@@ -15,6 +15,7 @@ from utils import *
 from config import *
 from vars import *
 
+# Define paths for storing results and logs
 date_path = datetime.now().strftime('%d-%m-%Y-%H-%M-%S')
 results_path = 'results/' + date_path
 logs_root = 'logs/'
@@ -22,29 +23,30 @@ logs_path = logs_root + date_path
 Path(results_path).mkdir(parents=True, exist_ok=True)
 Path(logs_path).mkdir(parents=True, exist_ok=True)
 
+# Initialize the logger
 logger = Logger(to_console=True, to_file=True, default_file=f'{logs_path}/console_output.txt')
 
-
+# Convert a decimal to an integer with a given number of decimal places
 def decimal_to_int(d, n):
     return int(d * (10 ** n))
 
-
+# Convert an integer to a decimal with a given number of decimal places
 def int_to_decimal(i, n):
     return i / (10 ** n)
 
-
+# Function to print a readable amount (with given number of decimal places)
 def readable_amount_int(i, n, d=2):
     return round(int_to_decimal(i, n), d)
 
-
+# Wait for a random amount of time before performing the next transaction
 def wait_next_tx():
     time.sleep(random.uniform(NEXT_TX_MIN_WAIT_TIME, NEXT_TX_MAX_WAIT_TIME))
 
-
+# Handle exceptions and delays during the execution of the script
 def _delay(r, *args, **kwargs):
     time.sleep(random.uniform(1, 2))
 
-
+# Custom Exception classes for better error handling
 class RunnerException(Exception):
 
     def __init__(self, message, caused=None):
@@ -72,12 +74,12 @@ class PendingException(Exception):
     def get_tx_hash(self):
         return self.tx_hash.hex()
 
-
+# Function to handle traceback errors during execution
 def handle_traceback(msg=''):
     trace = traceback.format_exc()
     logger.print(msg + '\n' + trace, filename=f'{logs_path}/tracebacks.log', to_console=False, store_tg=False)
 
-
+# Decorator to handle retries of certain functions
 def runner_func(msg):
     def decorator(func):
         @retry(tries=MAX_TRIES, delay=1.5, backoff=2, jitter=(0, 1), exceptions=RunnerException)
@@ -96,31 +98,33 @@ def runner_func(msg):
 
     return decorator
 
-
+# Enum for tracking the status of a function
 class Status(Enum):
     ALREADY = 1
     PENDING = 2
     SUCCESS = 3
     FAILED = 4
 
-
+# Class for running tasks on Ethereum blockchain
 class Runner:
 
+    # Initialize Runner with required information
     def __init__(self, private_key, proxy, nft_address):
         if proxy is not None and len(proxy) > 4 and proxy[:4] != 'http':
             proxy = 'http://' + proxy
         self.proxy = proxy
-
+        # Setting up web3 connections for different chains
         self.w3s = {chain: get_w3(chain, proxy=self.proxy) for chain in INVOLVED_CHAINS}
-
+        # Getting Ethereum account from private key
         self.private_key = private_key
         self.address = Account().from_key(private_key).address
-
+        # Address of the NFT to interact with
         self.nft_address = nft_address
-
+    # Method to get a web3 connection for a specific chain
     def w3(self, chain):
         return self.w3s[chain]
-
+    
+    # Method to wait and verify that a transaction has been completed
     def tx_verification(self, chain, tx_hash, action=None):
         action_print = action + ' - ' if action else ''
         logger.print(f'{action_print}Tx was sent')
@@ -133,14 +137,17 @@ class Runner:
                 raise RunnerException(f'{action_print}Tx status = {status}, chain = {chain}, tx_hash = {tx_hash.hex()}')
         except web3.exceptions.TimeExhausted:
             raise PendingException(chain, tx_hash, action_print[:-3])
-
+        
+    # Get balance of native coin of a chain
     def get_native_balance(self, chain):
         return self.w3(chain).eth.get_balance(self.address)
-
+    
+    # Build and send a transaction
     def build_and_send_tx(self, w3, func, action, value=0):
         return build_and_send_tx(w3, self.address, self.private_key, func, value, self.tx_verification, action)
 
     @classmethod
+    # Wait until gas price drops below a certain threshold
     def wait_for_eth_gas_price(cls, w3):
         t = 0
         while w3.eth.gas_price > Web3.to_wei(MAX_ETH_GAS_PRICE, 'gwei'):
@@ -154,7 +161,8 @@ class Runner:
 
         if w3.eth.gas_price > Web3.to_wei(MAX_ETH_GAS_PRICE, 'gwei'):
             raise RunnerException('Gas price is too high')
-
+        
+    # Wait until assets are bridged
     def wait_for_bridge(self, init_balance):
         t = 0
         while init_balance >= self.get_native_balance('Zora') and t < BRIDGE_WAIT_TIME:
@@ -168,6 +176,7 @@ class Runner:
         logger.print('Assets bridged successfully')
 
     @runner_func('Bridge')
+    # Bridge assets from Ethereum to Zora
     def bridge(self):
         w3 = self.w3('Ethereum')
 
@@ -188,7 +197,8 @@ class Runner:
         )
 
         return Status.SUCCESS
-
+    
+    # Mint ERC721 token
     def mint_erc721(self, w3, cnt):
         contract = w3.eth.contract(self.nft_address, abi=ZORA_ERC721_ABI)
 
@@ -207,7 +217,8 @@ class Runner:
         )
 
         return Status.SUCCESS
-
+    
+    # Mint ERC1155 token
     def mint_erc1155(self, w3, cnt):
         contract = w3.eth.contract(self.nft_address, abi=ZORA_ERC1155_ABI)
 
@@ -263,7 +274,7 @@ class Runner:
 
         return Status.SUCCESS
 
-
+# Function to wait for a random amount of time before the next run
 def wait_next_run(idx, runs_count):
     wait = random.randint(
         int(NEXT_ADDRESS_MIN_WAIT_TIME * 60),
@@ -288,12 +299,12 @@ def wait_next_run(idx, runs_count):
 
     time.sleep(wait)
 
-
+# Write results of execution to a file
 def write_result(filename, account):
     with open(f'{results_path}/{filename}', 'a') as file:
         file.write(f'{"|".join([str(a) for a in list(account)])}\n')
 
-
+# Log the result of a run
 def log_run(address, account, status, exc=None, msg=''):
     exc_msg = '' if exc is None else str(exc)
 
@@ -323,7 +334,7 @@ def log_run(address, account, status, exc=None, msg=''):
 
     logger.send_tg_stored()
 
-
+# Main function for script execution
 def main():
     if GET_TELEGRAM_CHAT_ID:
         get_telegram_bot_chat_id()
@@ -361,7 +372,16 @@ def main():
         if wallet.find(';') == -1:
             key = wallet
         else:
-            key = wallet.split(';')[1]
+            encrypted_key = wallet.split(';')[1]
+            PASSWORD = ''  # replace with your password
+            print(encrypted_key)
+
+            try:
+                key = decrypt_private_key(encrypted_key, PASSWORD)
+                print(key)
+            except Exception as e:
+                print(f"An error occurred during the decryption: {str(e)}")
+                continue
 
         runner = Runner(key, proxy, nft_address)
 
