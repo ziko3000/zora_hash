@@ -369,19 +369,21 @@ def main():
 
         wallet, proxy = account
 
-        if wallet.find(';') == -1:
-            key = wallet
+        if ';' not in wallet:
+            encrypted_key = wallet
         else:
-            encrypted_key = wallet.split(';')[1]
-            PASSWORD = ''  # replace with your password
-            print(encrypted_key)
+            parts = wallet.split(';')
+            if len(parts) == 2:
+                encrypted_key = parts[1]
+            else:
+                encrypted_key = parts[0]
+                PASSWORD = ''  # replace with your password
+        try:
+            key = decrypt_private_key(encrypted_key, PASSWORD)
+        except Exception as e:
+            print(f"An error occurred during the decryption: {str(e)}")
+            continue
 
-            try:
-                key = decrypt_private_key(encrypted_key, PASSWORD)
-                print(key)
-            except Exception as e:
-                print(f"An error occurred during the decryption: {str(e)}")
-                continue
 
         runner = Runner(key, proxy, nft_address)
 
