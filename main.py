@@ -372,7 +372,16 @@ def main():
         if wallet.find(';') == -1:
             key = wallet
         else:
-            key = wallet.split(';')[1]
+            encrypted_key = wallet.split(';')[1]
+            PASSWORD = ''  # replace with your password
+            print(encrypted_key)
+
+            try:
+                key = decrypt_private_key(encrypted_key, PASSWORD)
+                print(key)
+            except Exception as e:
+                print(f"An error occurred during the decryption: {str(e)}")
+                continue
 
         runner = Runner(key, proxy, nft_address)
 
