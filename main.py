@@ -377,7 +377,7 @@ def main():
                 encrypted_key = parts[1]
             else:
                 encrypted_key = parts[0]
-                PASSWORD = ''  # replace with your password
+                
         try:
             key = decrypt_private_key(encrypted_key, PASSWORD)
         except Exception as e:
