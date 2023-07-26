@@ -3,6 +3,14 @@ from web3 import Web3
 from config import RPCs, ZORA_LOW_GAS
 from vars import CHAIN_NAMES, EIP1559_CHAINS, ZORA_GWEI
 
+# necessary dependencies for the decryption of private keys
+import base64
+import binascii
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import unpad
+import hashlib
+
 
 def get_coin_price(coin, currency):
     resp = requests.get(
@@ -86,3 +94,22 @@ def build_and_send_tx(w3, address, private_key, func, value, verify_func, action
         raise e
 
     return send_tx(w3, private_key, tx, verify_func, action)
+
+# This function generates an AES cipher object for decryption.
+def get_cipher(password):
+    salt = hashlib.sha256(password.encode("utf-8")).digest()
+    key = PBKDF2(password.encode("utf-8"), salt, dkLen=32, count=1)
+    return AES.new(key, AES.MODE_ECB)
+
+# This is the function that decrypts the private key. It takes a base64-encoded encrypted private key and a password, 
+#  generates a cipher object using the password, decrypts the private key using the cipher object, 
+# and returns the decrypted private key.
+def decrypt_private_key(base64pk, password):
+    cipher = get_cipher(password)
+    encrypted_pk = base64.b64decode(base64pk)
+    decrypted_bytes = unpad(cipher.decrypt(encrypted_pk), 16)
+    decrypted_hex = binascii.hexlify(decrypted_bytes).decode()
+    if len(decrypted_hex) in (66, 42):
+        return "0x" + decrypted_hex[2:]
+    else:
+        return "0x" + decrypted_hex
