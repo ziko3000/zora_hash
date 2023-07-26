@@ -254,7 +254,6 @@ class Runner:
             return self.mint_erc1155(w3, MINT_COUNT)
 
     def run(self):
-        logger.print(self.address)
 
         if MODE == 0:
             return self.bridge()
